@@ -1,0 +1,73 @@
+#!/bin/zsh
+
+DOWNLOAD_URI_BASE=https://storage.googleapis.com/golang
+GO_PLATFORM=linux-amd64
+INSTALL_PREFIX=/usr/local/go
+version_url=""
+tmpfile=$(mktemp)
+setopt nullglob
+
+download_url () {
+    local version=$1
+    if [[ -z $version ]]
+    then
+        print ""
+        return
+    else
+        version_url=${DOWNLOAD_URI_BASE}/go${version}.${GO_PLATFORM}.tar.gz
+    fi
+    return
+}
+
+get_installed () {
+    versions_installed=($INSTALL_PREFIX/*(:t))
+}
+
+list_installed () {
+    print "go versions installed in $INSTALL_PREFIX:"
+    print ${(n)versions_installed}
+}
+
+install_go () {
+    local version=$1
+    if [[ -z $version ]]
+    then
+        print -u2 "error"
+        exit 1
+    fi
+    if ((${versions_installed[(I)$version]}))
+    then
+        print "version $version already installed."
+        exit 1
+    fi
+    download_url $1
+    print "getting $version_url..."
+    curl -s -f $version_url -o $tmpfile
+    if [[ $? -ne 0 ]]
+    then
+        print -u2 "error downloading $version_url, exit."
+        exit 1
+    fi
+    mkdir $INSTALL_PREFIX/$version
+    print "unpacking $tmpfile into $INSTALL_PREFIX/$version..."
+    tar xzf $tmpfile -C $INSTALL_PREFIX/$version --strip-components=1
+    rm $tmpfile
+}
+
+if [[ ! -d $INSTALL_PREFIX ]]
+then
+    print -u2 "$INSTALL_PREFIX does not exist, exit."
+    exit 1
+fi
+
+get_installed
+
+if [[ $# -eq 0 ]]
+then
+    list_installed
+elif [[ $# -eq 1 ]]
+then
+    install_go $1
+else
+    usage
+fi
